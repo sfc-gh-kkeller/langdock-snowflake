@@ -149,6 +149,29 @@ Still to confirm:
 
 ---
 
+## Agent governance: inventory, sensitive data, usage, error rates
+
+Internal audit teams used to governed AI platforms typically ask for four things. All four can be answered from Snowflake system views today, using `sql/03_agent_governance.sql` (tested on a live account).
+
+| Audit question | Source | Tested result |
+|---|---|---|
+| **Agent inventory** | `SHOW AGENTS IN ACCOUNT`, `SHOW MCP SERVERS IN ACCOUNT` (+ `SHOW GRANTS ON AGENT`) | All agents and MCP servers listed with database, schema, owner, created date and comment ✅ |
+| **Which agents touch which data** | `ACCOUNT_USAGE.ACCESS_HISTORY.AGENTS_INFO` joined to `BASE_OBJECTS_ACCESSED`, `POLICIES_REFERENCED` and `TAG_REFERENCES` | Per agent: tables, columns, distinct users, whether the call came through an external client (Langdock/MCP shows as `EXTERNAL_AGENT`), and whether a row access policy applied ✅ |
+| **Usage per agent** | `SNOWFLAKE.LOCAL.AI_OBSERVABILITY_EVENTS` (agent traces), `ACCOUNT_USAGE.QUERY_HISTORY.AGENT_TYPE` | Requests, distinct users, p95 latency and last use per agent; agent-issued SQL per user and role ✅ |
+| **Error rate per agent** | `AI_OBSERVABILITY_EVENTS`, request span `AgentV2RequestResponseInfo` | Agent with a broken tool: 3 of 3 requests counted as errors (100 %), healthy agents 0 %, with an error breakdown by code ✅ |
+
+Findings from the test:
+
+- **Tool failures do not appear in the request status.** When a tool failed (its semantic view was dropped), the request still reported status `SUCCESS` and the agent answered "I can't answer this…". The failure is recorded only in `snow.ai.observability.agent.warnings` (code `399569 TOOL_NOT_ACCESSIBLE`). Error rates therefore count requests with a non-success status **or** warnings.
+- **Failures that never reach SQL** (missing tool, no access) are not visible in `QUERY_HISTORY`; the agent traces are the source for error rates. `QUERY_HISTORY` covers failed SQL issued by agents.
+- **External callers are visible:** queries from Langdock through the MCP server carry both the Cortex Agent and `EXTERNAL_AGENT` in `AGENTS_INFO`, under the real user.
+- **Sensitive data** is identified by joining accessed columns to tags (custom tags or classification tags such as `SNOWFLAKE.CORE.SEMANTIC_CATEGORY`). `ACCOUNT_USAGE.TAG_REFERENCES` has latency (up to ~2 h); for a live check per table use `INFORMATION_SCHEMA.TAG_REFERENCES_ALL_COLUMNS`.
+- **Latency:** `AI_OBSERVABILITY_EVENTS` had the requests within about a minute; `ACCESS_HISTORY` within minutes in this test (documented latency up to ~3 h).
+- **Agent data metric functions** (`SNOWFLAKE.CORE.AGENT_ERROR_RATE`, `AGENT_LATENCY_P95`) were not available on the test account; the queries above do not depend on them.
+- The test ran as `ACCOUNTADMIN`. For a production dashboard, a dedicated audit role needs `ACCOUNT_USAGE` access and access to the agent traces; check the required privileges in the Snowflake documentation.
+
+These queries can back a Snowsight dashboard or a small Streamlit app; a packaged, supported dashboard is not part of this repository.
+
 ## Appendix: setup and test steps
 
 These are the steps used in the test environment. Values in `<angle brackets>` are environment-specific. The SQL runs as `ACCOUNTADMIN` (or an equivalent admin role).
@@ -275,6 +298,7 @@ Expected: `user_name` is the employee (not a service user), `role_name` is `MCP_
 
 - `sql/01_demo_setup.sql`: demo data, row access policy, semantic view, search service, agent, MCP server and grants.
 - `sql/02_evidence.sql`: audit queries for identity, role, source IP, agent attribution and policies.
+- `sql/03_agent_governance.sql`: agent inventory, data touched per agent (with tags and policies), usage and error rate per agent.
 - `sql/mcp_dr_sync_to_secondary.sql`: DR sync of MCP servers to a secondary account (PAT option and Entra client-credentials option).
 - `scripts/mcp_as_user.py`: calls the MCP server with a user token (optional `X-Snowflake-Role`), without Langdock.
 - `scripts/langdock_sim_pkce.py`: simulates Langdock's OAuth 2.0 Manual flow (browser sign-in, Auth Code + PKCE, refresh) on `localhost:8765`.
