@@ -1,0 +1,11 @@
+# secrets / tokens
+.env
+.token
+*.secret
+.client_id
+.client_secret
+*_pw
+.sec_pat.json
+# local
+__pycache__/
+.DS_Store
