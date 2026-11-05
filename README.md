@@ -79,6 +79,7 @@ No password, key or service account is stored for data access.
 - **Who accessed which data:** `ACCESS_HISTORY` and `QUERY_HISTORY` record each query under the employee's name and role, marked as agent activity.
 - **Prompts and answers:** Cortex Agent threads and observability in Snowflake, plus Langdock's chat logs.
 - **Logins:** `LOGIN_HISTORY` records each External OAuth sign-in.
+- **Agent governance:** agent inventory, which agents read sensitive (tagged) columns, and usage and error rate per agent. Tested queries in `sql/03_agent_governance.sql`; see [Agent governance](#agent-governance-inventory-sensitive-data-usage-error-rates).
 
 ## Network and resilience
 
@@ -113,6 +114,12 @@ Tested end to end with a real Entra ID user. A confidential OAuth client was set
 | Cortex Agent → Cortex Analyst: row access policy returned only the employee's fund | ✅ |
 | Cortex Search: returned notes for a fund the employee is not entitled to | ⚠️ Expected; split services by access domain |
 | `QUERY_HISTORY` shows the agent's SQL under the employee's name and role | ✅ |
+| Agent inventory: `SHOW AGENTS` / `SHOW MCP SERVERS IN ACCOUNT` list every agent and MCP server with owner and creation date | ✅ |
+| Sensitive data per agent: columns an agent read (`ACCESS_HISTORY`) joined to column tags returned `IBAN` and `CLIENT_NAME` as `CONFIDENTIAL`, `SEGMENT` as `PUBLIC`, untagged key as untagged | ✅ |
+| Usage per agent from agent traces: requests, distinct users, p95 latency, last use | ✅ |
+| Error rate per agent: agent with a broken tool 100 % (3 of 3), healthy agents 0 %, breakdown by error code | ✅ |
+| A failed tool leaves the request status at `SUCCESS`; the error is only in the request's warnings (`399569 TOOL_NOT_ACCESSIBLE`) | ⚠️ Error rates count status **and** warnings |
+| `ACCOUNT_USAGE.TAG_REFERENCES` latency: tags on objects dropped before it caught up never appeared | ⚠️ Use the live `INFORMATION_SCHEMA` variant per table |
 
 ## Common questions
 
@@ -126,6 +133,11 @@ Tested end to end with a real Entra ID user. A confidential OAuth client was set
 | 6 | Audit of prompts, answers and data accessed? | Access and query history per user (marked as agent activity), Cortex Agent observability, Langdock chat logs |
 | 7 | Authentication, MCP and agents in failover? | Users, roles, policies and integrations replicate. MCP server objects do not replicate; a task on the primary recreates them on the secondary, authenticated with Entra client credentials (tested; sample script provided). One connection URL (Client Redirect) is the stable endpoint for Langdock and the token audience. |
 | 8 | What needs Business Critical? | Failover / Client Redirect, Private Link to Azure, Tri-Secret Secure (customer-managed key) |
+| 9 | Is there an inventory of all agents? | Yes. `SHOW AGENTS IN ACCOUNT` and `SHOW MCP SERVERS IN ACCOUNT`, plus grants for who can use them (tested) |
+| 10 | Which agents touch sensitive data? | `ACCESS_HISTORY` records the tables and columns each agent read, per user and with the policies applied; joined to column tags (custom or classification tags) this shows which agents read sensitive columns (tested) |
+| 11 | Usage per agent? | Agent traces (`SNOWFLAKE.LOCAL.AI_OBSERVABILITY_EVENTS`): requests, users, p95 latency, last use; `QUERY_HISTORY` for the SQL agents ran (tested) |
+| 12 | Error rates per agent? | From the agent traces, counting failed requests and requests with tool warnings, since a failed tool can still report `SUCCESS` (tested: 100 % for a broken agent, 0 % for healthy ones) |
+| 13 | Is there a ready-made dashboard? | Not packaged here; the queries in `sql/03_agent_governance.sql` can back a Snowsight dashboard or a Streamlit app |
 
 ## Points to confirm in the proof of concept
 
@@ -151,12 +163,13 @@ Still to confirm:
 
 ## Agent governance: inventory, sensitive data, usage, error rates
 
-Internal audit teams used to governed AI platforms typically ask for four things. All four can be answered from Snowflake system views today, using `sql/03_agent_governance.sql` (tested on a live account).
+Internal audit teams used to governed AI platforms typically ask for an agent inventory, which agents touch sensitive data, and usage and error rates per agent. All four can be answered from Snowflake system views today, using `sql/03_agent_governance.sql` (tested on a live account).
 
 | Audit question | Source | Tested result |
 |---|---|---|
 | **Agent inventory** | `SHOW AGENTS IN ACCOUNT`, `SHOW MCP SERVERS IN ACCOUNT` (+ `SHOW GRANTS ON AGENT`) | All agents and MCP servers listed with database, schema, owner, created date and comment ✅ |
 | **Which agents touch which data** | `ACCOUNT_USAGE.ACCESS_HISTORY.AGENTS_INFO` joined to `BASE_OBJECTS_ACCESSED`, `POLICIES_REFERENCED` and `TAG_REFERENCES` | Per agent: tables, columns, distinct users, whether the call came through an external client (Langdock/MCP shows as `EXTERNAL_AGENT`), and whether a row access policy applied ✅ |
+| **Which agents touch sensitive data** | Same, joined to column tags (live: `INFORMATION_SCHEMA.TAG_REFERENCES_ALL_COLUMNS`) | Agent reads matched to tags: `IBAN`, `CLIENT_NAME` = `CONFIDENTIAL`; `SEGMENT` = `PUBLIC` ✅ |
 | **Usage per agent** | `SNOWFLAKE.LOCAL.AI_OBSERVABILITY_EVENTS` (agent traces), `ACCOUNT_USAGE.QUERY_HISTORY.AGENT_TYPE` | Requests, distinct users, p95 latency and last use per agent; agent-issued SQL per user and role ✅ |
 | **Error rate per agent** | `AI_OBSERVABILITY_EVENTS`, request span `AgentV2RequestResponseInfo` | Agent with a broken tool: 3 of 3 requests counted as errors (100 %), healthy agents 0 %, with an error breakdown by code ✅ |
 
