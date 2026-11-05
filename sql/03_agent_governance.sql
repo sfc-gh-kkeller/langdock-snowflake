@@ -44,6 +44,30 @@ LEFT JOIN SNOWFLAKE.ACCOUNT_USAGE.TAG_REFERENCES t
 GROUP BY ALL
 ORDER BY agent, object_name, column_name;
 
+-- 2b. Live variant for one table (no TAG_REFERENCES latency), tested:
+--     agent reads of CLIENTS joined to its column tags
+--     -> IBAN / CLIENT_NAME = CONFIDENTIAL, SEGMENT = PUBLIC, CLIENT_ID untagged
+WITH tags AS (
+  SELECT '<DB>.<SCHEMA>.' || object_name AS object_name, column_name, tag_name, tag_value
+  FROM TABLE(<DB>.INFORMATION_SCHEMA.TAG_REFERENCES_ALL_COLUMNS('<DB>.<SCHEMA>.<TABLE>', 'table'))
+), reads AS (
+  SELECT ah.query_id, ah.query_start_time,
+         a.value:agentName::string  AS agent,
+         o.value:objectName::string AS object_name,
+         c.value:columnName::string AS column_name
+  FROM SNOWFLAKE.ACCOUNT_USAGE.ACCESS_HISTORY ah,
+       LATERAL FLATTEN(ah.agents_info) a,
+       LATERAL FLATTEN(ah.base_objects_accessed) o,
+       LATERAL FLATTEN(o.value:columns) c
+  WHERE ah.query_start_time > DATEADD(day, -7, CURRENT_TIMESTAMP())
+    AND a.value:agentType::string = 'CORTEX_AGENT'
+    AND o.value:objectName::string = '<DB>.<SCHEMA>.<TABLE>'
+)
+SELECT r.agent, r.column_name, t.tag_name, t.tag_value,
+       COUNT(DISTINCT r.query_id) AS queries, MAX(r.query_start_time) AS last_read
+FROM reads r LEFT JOIN tags t USING (object_name, column_name)
+GROUP BY ALL ORDER BY r.column_name;
+
 -- 3. Usage and error rate per agent, from agent traces (all requests,
 --    including failures that never reach SQL, e.g. a missing tool target).
 --    A request can report status SUCCESS while a tool failed: the failure
