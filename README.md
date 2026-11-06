@@ -201,6 +201,23 @@ These are the steps used in the test environment. Values in `<angle brackets>` a
    - *API permissions* → add the delegated permission `session:role:MCP_USER` from the Snowflake app → grant admin consent.
 3. **Users:** each employee signs in with their own Entra account. Their `preferred_username` (UPN) has to match the Snowflake user's `LOGIN_NAME`; SCIM provisioning does this automatically.
 
+#### Making the passthrough silent
+
+The goal is that employees who are already signed in to Langdock with Entra ID don't see a consent screen or a password prompt when they connect Snowflake, and don't have to sign in again later.
+
+| Step | Where in Entra | Effect |
+|---|---|---|
+| **1. Tenant-wide admin consent** | Langdock client app → *API permissions* → *Grant admin consent for &lt;tenant&gt;* for `session:role:MCP_USER` (and `offline_access`) | No consent screen for any user |
+| **2. Same tenant as the Langdock login** | Langdock workspace SSO and the client app in the same Entra tenant | At connect, Entra reuses the existing browser session: a redirect without a password prompt (MFA only if Conditional Access requires it) |
+| **3. Refresh tokens** | Scope includes `offline_access` (in the Langdock connector) | Langdock renews the access token itself; users connect once |
+| **4. Lifetimes and Conditional Access** | *Conditional Access* → sign-in frequency for the Langdock client app; default refresh token lifetime applies otherwise | Controls how often a silent re-sign-in happens; a shorter frequency means more prompts |
+| **5. Restrict who can connect** (optional) | Langdock client app → *Enterprise application* → *Properties* → *Assignment required = Yes*, assign the Langdock user group | Only assigned employees get a token |
+| **6. Revocation** | Disable the user in Entra, or *Revoke sessions* | Refresh fails, and the Langdock connection stops working for that user; SCIM also disables the Snowflake user |
+
+What the test showed: with admin consent granted, connecting in Langdock was one redirect through Entra, with an account choice and no consent screen. After that, the refresh token kept the connection working without another sign-in.
+
+Fully silent passthrough, with no connect step at all: Langdock can forward the user's own Langdock login token (`{{ user_oauth_access_token }}`), but only on dedicated Langdock deployments. Snowflake checks the token's audience, so that login token would have to be issued for the Snowflake app (`api://<snowflake-app-id>`). This wasn't tested (SaaS workspace); confirm it with Langdock.
+
 ### B. Snowflake
 
 ```sql
