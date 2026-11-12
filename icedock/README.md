@@ -21,6 +21,54 @@ Icedock is a local chat, agents and MCP integrations app modelled on the Langdoc
 
 Tokens and client secrets are encrypted at rest (Fernet, key derived from `SESSION_SECRET`) in `icedock/data/icedock.db`. Access and refresh tokens are refreshed automatically.
 
+## Screenshots
+
+Demo UI only. Captured during the end-to-end test on 12 Nov 2026. Names, e-mail addresses, account URL and tenant/app/client IDs are blurred (`docs/blur_for_screenshots.js`).
+
+**Sign-in with Microsoft Entra ID**
+
+![Sign-in with Microsoft Entra ID](docs/screenshots/01-login.png)
+
+**Agent chat: the tool card shows the MCP call, its input and output, and the identity it ran as**
+
+![Agent chat: the tool card shows the MCP call, its input and output, and the identity it ran as](docs/screenshots/02-agent-chat-tool-call.png)
+
+**Row access applied: only Alpha Equity is visible; the tool ran as KELLER with role LDC_MCP_USER**
+
+![Row access applied: only Alpha Equity is visible; the tool ran as KELLER with role LDC_MCP_USER](docs/screenshots/03-chat-user-and-role.png)
+
+**Cortex Search caveat: research notes are not row-filtered, so the Secret Beta note is returned**
+
+![Cortex Search caveat: research notes are not row-filtered, so the Secret Beta note is returned](docs/screenshots/04-search-caveat.png)
+
+**Integrations: Snowflake MCP server, connected per user, with discovered tools**
+
+![Integrations: Snowflake MCP server, connected per user, with discovered tools](docs/screenshots/05-integrations.png)
+
+**OAuth 2.0 Manual settings, as in the Langdock connector (resource parameter off, X-Snowflake-Role header)**
+
+![OAuth 2.0 Manual settings, as in the Langdock connector (resource parameter off, X-Snowflake-Role header)](docs/screenshots/06-integration-oauth-manual.png)
+
+**Agents list**
+
+![Agents list](docs/screenshots/07-agents.png)
+
+**Agent configuration: instructions, model, conversation starters**
+
+![Agent configuration: instructions, model, conversation starters](docs/screenshots/08-agent-configure.png)
+
+**Agent actions: MCP tools and the "Pre-select my connection" option**
+
+![Agent actions: MCP tools and the "Pre-select my connection" option](docs/screenshots/09-agent-actions.png)
+
+**Account page: Entra token claims used for the Snowflake session**
+
+![Account page: Entra token claims used for the Snowflake session](docs/screenshots/10-account-token.png)
+
+**Audit log: logins, connections, token refreshes, chats and tool calls**
+
+![Audit log: logins, connections, token refreshes, chats and tool calls](docs/screenshots/11-audit-log.png)
+
 ## Run
 
 ```bash
