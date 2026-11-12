@@ -96,6 +96,16 @@ Tested end to end with a real Entra ID user. A confidential OAuth client was set
 
 **Update (Nov 2026): Icedock demo UI.** After the Langdock trial ended, the flow was re-tested with [`icedock/`](icedock/README.md), a small local app that mimics the Langdock chat, agents and MCP integrations screens. **The UI is for demo purposes only**: it is not a product, not hardened, and not meant for production; it only exists to show the identity passthrough without a Langdock licence. Results with Icedock matched the earlier tests: Entra SSO token with `session:role:LDC_MCP_USER`, per-user MCP connection, the agent returning only the user's entitled fund, silent token refresh, and `QUERY_HISTORY` / `LOGIN_HISTORY` showing the employee and `LDC_MCP_USER`. It also shows two points from this README: without `X-Snowflake-Role` the call fails with `390317`, and Cortex Search returns notes regardless of the row access policy.
 
+Screenshots (demo UI only, identifiers blurred; all of them in [`icedock/README.md`](icedock/README.md#screenshots)):
+
+| Per-user tool call | Row access applied | Search caveat |
+|---|---|---|
+| ![Tool call](icedock/docs/screenshots/02-agent-chat-tool-call.png) | ![Row access](icedock/docs/screenshots/03-chat-user-and-role.png) | ![Search caveat](icedock/docs/screenshots/04-search-caveat.png) |
+
+| OAuth 2.0 Manual connector | Agent actions | Audit log |
+|---|---|---|
+| ![OAuth manual](icedock/docs/screenshots/06-integration-oauth-manual.png) | ![Agent actions](icedock/docs/screenshots/09-agent-actions.png) | ![Audit log](icedock/docs/screenshots/11-audit-log.png) |
+
 | Check | Result |
 |---|---|
 | **Langdock (SaaS) "OAuth 2.0 Manual" connector → Entra ID → Snowflake MCP:** Langdock's backend calls Snowflake with the employee's own token | ✅ |
