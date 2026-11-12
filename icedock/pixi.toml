@@ -1,0 +1,30 @@
+[workspace]
+name = "icedock"
+version = "0.1.0"
+description = "Icedock: chat, agents and MCP integrations with Entra ID per-user passthrough to Snowflake"
+channels = ["conda-forge"]
+platforms = ["osx-arm64", "osx-64", "linux-64"]
+
+[dependencies]
+python = "3.12.*"
+nodejs = ">=20"
+
+[pypi-dependencies]
+fastapi = ">=0.115"
+uvicorn = { version = ">=0.30", extras = ["standard"] }
+httpx = ">=0.27"
+python-dotenv = ">=1.0"
+itsdangerous = ">=2.2"
+cryptography = ">=43"
+pytest = ">=8"
+pytest-asyncio = ">=0.24"
+
+[tasks]
+web-install = { cmd = "npm install", cwd = "web" }
+web-build = { cmd = "npm run build", cwd = "web", depends-on = ["web-install"] }
+web-dev = { cmd = "npm run dev", cwd = "web" }
+api-dev = { cmd = "uvicorn app.main:app --reload --port 8000", cwd = "backend" }
+serve = { cmd = "uvicorn app.main:app --port 8000", cwd = "backend" }
+start = { depends-on = ["web-build", "serve"] }
+test = { cmd = "pytest -q", cwd = "backend" }
+e2e-check = { cmd = "python ../scripts/e2e_check.py", cwd = "backend" }

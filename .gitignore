@@ -10,3 +10,10 @@
 __pycache__/
 .DS_Store
 test_local/
+
+# icedock
+icedock/.env
+icedock/data/
+icedock/web/node_modules/
+icedock/web/dist/
+icedock/.pixi/

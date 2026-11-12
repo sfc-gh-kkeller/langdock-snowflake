@@ -94,6 +94,8 @@ No password, key or service account is stored for data access.
 
 Tested end to end with a real Entra ID user. A confidential OAuth client was set up the way Langdock's "OAuth 2.0 Manual" connector is: browser sign-in, Authorization Code + PKCE, client secret, and a refresh token.
 
+**Update (Nov 2026): Icedock demo UI.** After the Langdock trial ended, the flow was re-tested with [`icedock/`](icedock/README.md), a small local app that mimics the Langdock chat, agents and MCP integrations screens. **The UI is for demo purposes only**: it is not a product, not hardened, and not meant for production; it only exists to show the identity passthrough without a Langdock licence. Results with Icedock matched the earlier tests: Entra SSO token with `session:role:LDC_MCP_USER`, per-user MCP connection, the agent returning only the user's entitled fund, silent token refresh, and `QUERY_HISTORY` / `LOGIN_HISTORY` showing the employee and `LDC_MCP_USER`. It also shows two points from this README: without `X-Snowflake-Role` the call fails with `390317`, and Cortex Search returns notes regardless of the row access policy.
+
 | Check | Result |
 |---|---|
 | **Langdock (SaaS) "OAuth 2.0 Manual" connector → Entra ID → Snowflake MCP:** Langdock's backend calls Snowflake with the employee's own token | ✅ |
@@ -332,5 +334,7 @@ Expected: `user_name` is the employee (not a service user), `role_name` is `MCP_
 - `sql/mcp_dr_sync_to_secondary.sql`: DR sync of MCP servers to a secondary account (PAT option and Entra client-credentials option).
 - `scripts/mcp_as_user.py`: calls the MCP server with a user token (optional `X-Snowflake-Role`), without Langdock.
 - `scripts/langdock_sim_pkce.py`: simulates Langdock's OAuth 2.0 Manual flow (browser sign-in, Auth Code + PKCE, refresh) on `localhost:8765`.
+
+- `icedock/`: Icedock, a local Langdock-style **demo-only** UI (chat, agents, MCP integrations with per-user OAuth) in Python + Preact, used to keep testing the passthrough end to end. See `icedock/README.md`.
 
 Configuration for the scripts comes from environment variables; see `.env.example`.
